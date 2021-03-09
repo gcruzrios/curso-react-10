@@ -1,54 +1,122 @@
 const { response } = require('express');
 const { validationResult } = require('express-validator');
-const crearUsuario = (req, res = response )=>{
+const bcrypt = require('bcryptjs');
+const Usuario = require('../models/Usuario');
+const { generarJWT } = require('../helpers/jwt')
 
-    const { name, email, password } = req.body;
+const crearUsuario = async (req, res = response )=>{
 
-    // if (name.length < 5){
-    //     return res.status(400).json({
-    //         ok:false,
-    //         msg:'El nombre debe ser mayor de 5 letras'
-    //     });
-    // }
-
-    //Manejo de errores
+    const { email, password } = req.body;
 
     
-    
+    try {
 
-    res.status(201).json({
-       ok:true,
-       msg:'registro',
-       name,
-       email,
-       password
-    })
+         let usuario = await Usuario.findOne({ email })
+         //console.log(usuario);
+
+         if(usuario){
+            return res.status(400).json({
+               ok:false,
+               msg: 'Un usuario ya existe con ese correo'
+            });
+         }
+
+         usuario = new Usuario( req.body );
+
+         //Encriptar contraseña
+
+         const salt=bcrypt.genSaltSync();
+         usuario.password = bcrypt.hashSync( password, salt);
+
+         await usuario.save();
+
+         const token = await generarJWT(usuario.id, usuario.name)
+
+         // Generar el JWT JSON WEb Token
+      
+         res.status(201).json({
+         ok:true,
+         uid: usuario.id,
+         name: usuario.name,
+         token
+         
+      });
+    } catch (error) {
+       console.log(error)
+       res.status(500).json({
+          ok:false,
+          msg:'Por favor hable con el administrador'
+       });
+    }
+    
+    
   }
 
-  const loginUsuario = (req, res = response)=>{
+  const loginUsuario = async(req, res = response)=>{
 
 
     
     const { email, password } = req.body;
 
+   try {
+      const usuario = await Usuario.findOne({ email })
+      //console.log(usuario);
 
+      if(!usuario){
+         return res.status(400).json({
+            ok:false,
+            msg: 'El usuario no existe con ese correo'
+         });
+      }
+      //Confirmar los passwords
+
+      const validPassword = bcrypt.compareSync(password, usuario.password);
+
+      if (!validPassword){
+         return res.status(400).json({
+            ok:false,
+            msg:'Password incorrecto'
+         });
+      }
+
+      // generar nuestro JWT
+      const token = await generarJWT(usuario.id, usuario.name)
+
+      res.json({
+         ok:true,
+         uid: usuario.id,
+         name: usuario.name,
+         token
+      })
+      
+   } catch (error) {
+      console.log(error)
+      res.status(500).json({
+         ok:false,
+         msg:'Por favor hable con el administrador'
+      });
+   }
     
 
 
-    res.status(200).json({
-       ok:true,
-       msg: 'login',
-       email,
-       password
-    })
+   
   }
 
   
 
-  const revalidarToken = (req, res= response)=>{
-    res.json({
+  const revalidarToken =  async(req, res= response)=>{
+   
+   const uid = req.uid;
+   const name = req.name;
+
+   //generar un nuevo JWT y retornarlo en la petición
+   
+   const token = await generarJWT(uid, name)
+
+   res.json({
        ok:true,
-       msg:'renew'
+       token
+      
     })
   }
 
