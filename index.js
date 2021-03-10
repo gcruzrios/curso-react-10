@@ -1,4 +1,3 @@
-
 const express= require('express');
 const { dbConnection } = require('./database/config');
 require('dotenv').config();
@@ -31,6 +30,7 @@ app.use(express.json());
 // auth crear login renew TODO Crud Eventos
 
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/events', require('./routes/events'));
 
 //escuchar peticiones
 
